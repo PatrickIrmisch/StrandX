@@ -6,6 +6,9 @@ kinetics using the Markov model.
 
 Author: Patrick Irmisch
 TU Delft, 2026
+
+still to take care of:
+mismatches in toehold region
 """
 
 import numpy as np
@@ -39,6 +42,8 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+
 
 st.markdown(
     """
@@ -103,6 +108,7 @@ with st.expander("about Strand-X & Usage Guidelines", expanded=False):
     - Supports only **single-toehold** designs.
     - Compatible with up to **2 non-adjacent mismatches** betweeen the invader and target strand.
     - Assumes no mismatches in the incumbent-target duplex.
+    - Assumes no mismatches in the toehold region.
     - Invader needs to be able to fully displace the incumbent.
     - The model currently does not employ sequence-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
     - The model currently does not employ salt-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
@@ -265,6 +271,11 @@ if st.button("Run Strand Displacement Calculation"):
     elif n_mismatches > 2:
         st.error("The model is currently not compatible with more than 2 mismatches.")
         st.stop()
+
+    if mm_pos_1<0 or mm_pos_2<0:
+        st.error("The model is currently not compatible with mismatches in the toehold region.")
+        st.stop()
+    
 
     if show_alignment:
         st.write(f"Number of mismatches: {n_mismatches}")
