@@ -18,6 +18,28 @@ import DNA_Markov_Model as dmm
 VERSION = "1.0.0"
 VALID_BASES = set("ATGC")
 
+def check_password():
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if st.session_state["password_correct"]:
+        return True
+
+    st.title("Strand-X Reviewer Access")
+    user_password = st.text_input("Enter Manuscript Access Password", type="password")
+    
+    if st.button("Log In"):
+        if user_password == "Reviewer2026!":  # Set your chosen password here
+            st.session_state["password_correct"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect password")
+    
+    return False
+
+if not check_password():
+    st.stop()
+
 st.markdown(
     """
     <style>
