@@ -25,6 +25,7 @@ The application will automatically open in your default browser at http://localh
 2. Define experimental conditions
 3. Click Run Strand Displacement Calculation
 
+---
 
 ## Repository Structure
 
@@ -34,8 +35,6 @@ The application will automatically open in your default browser at http://localh
 - README.md: Project documentation
 - SantaLucia_DNA_parameters.py: contains NN DNA parameters
 - StrandX_v_1_0.py: Main Streamlit user interface
-
----
 
 ---
 
