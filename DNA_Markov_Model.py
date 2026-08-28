@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Code written by: Patrick Irmisch
-TU Delft, 2026
+2026
 
 Markov model solver for predicting temperature-dependent DNA 
 strand displacement kinetics with single and double mismatches.
@@ -43,7 +43,7 @@ def viscosity(temp_k):
 
 
 def Temp_dep_Markov_mismatch(
-    Temperature_C, L, N, c_oligo, Hbp, Sbp, MMpos1, MMpos2, Hmm, Smm
+    Temperature_C, L, N, c_oligo, Hbp, Sbp, MMpos1, MMpos2, Hmm1, Smm1,Hmm2,Smm2
 ):
     """
     Solves the mean first passage time (MFPT) for strand displacement 
@@ -79,8 +79,8 @@ def Temp_dep_Markov_mismatch(
     dg_assoc    = (0.2        * 1000.0 + 5.7        * temp_k) / 1000.0 * to_kbt
     dg_bm       = (H_BM       * 1000.0 - S_BM       * temp_k) / 1000.0 * to_kbt
     dg_assoc_ts = (H_ASSOC_TS * 1000.0 - S_ASSOC_TS * temp_k) / 1000.0 * to_kbt
-    dg_mm       = (Hmm        * 1000.0 - Smm        * temp_k) / 1000.0 * to_kbt
-
+    dg_mm1      = (Hmm1       * 1000.0 - Smm1       * temp_k) / 1000.0 * to_kbt
+    dg_mm2      = (Hmm2       * 1000.0 - Smm2       * temp_k) / 1000.0 * to_kbt
     # Base rate constants adjusted for temperature and solvent viscosity
     visc_factor = (temp_k / 295.0) * (1000.0 / viscosity(temp_k))
     kbp = K_BP_INIT * visc_factor
@@ -108,18 +108,18 @@ def Temp_dep_Markov_mismatch(
 
     # Single mismatch cases
     if MMpos1 > 0 and MMpos2 == 0:
-        rates[0, L + MMpos1] = kbm * np.exp(dg_mm)
+        rates[0, L + MMpos1] = kbm * np.exp(dg_mm1)
     elif MMpos1 == 0 and MMpos2 > 0:
-        rates[0, L + MMpos2] = kbm * np.exp(dg_mm)
+        rates[0, L + MMpos2] = kbm * np.exp(dg_mm2)
 
     # Combined macrostate for double mismatches
     if MMpos1 > 0 and MMpos2 > 0 and MMpos1 != MMpos2:
-        z_partition = np.exp(-2.0 * dg_mm) + np.exp(
-            -(dg_mm + (-dg_bp + 0.8) * abs(MMpos1 - MMpos2))
+        z_partition = np.exp(-dg_mm1-dg_mm2) + np.exp(
+            -(dg_mm1/2+dg_mm2/2 + (-dg_bp + 0.8) * abs(MMpos1 - MMpos2))
         )
         dg_tot = -np.log(z_partition)
-        rates[0, L + MMpos1] = kbm * np.exp(dg_tot / 2.0)
-        rates[0, L + MMpos2] = kbm * np.exp(dg_tot / 2.0)
+        rates[0, L + MMpos1] = kbm * np.exp(dg_tot *dg_mm1/(dg_mm1+dg_mm2))
+        rates[0, L + MMpos2] = kbm * np.exp(dg_tot *dg_mm2/(dg_mm1+dg_mm2))
 
     # Rate for spontaneous dissociation of incumbent
     rateoff = np.zeros(L + N + 1)

@@ -5,10 +5,8 @@ Interactive Streamlit application for predicting DNA strand displacement
 kinetics using the Markov model.
 
 Author: Patrick Irmisch
-TU Delft, 2026
+2026
 
-still to take care of:
-mismatches in toehold region
 """
 
 import numpy as np
@@ -32,7 +30,7 @@ def check_password():
     user_password = st.text_input("Enter Manuscript Access Password", type="password")
     
     if st.button("Log In"):
-        if user_password == "Reviewer2026!":  # Set your chosen password here
+        if user_password == "Reviewer2026!":
             st.session_state["password_correct"] = True
             st.rerun()
         else:
@@ -142,6 +140,7 @@ with col1:
         min_value=0.0,
         max_value=100.0,
         value=25.0,
+        step=0.1,
     )
 
 with col2:
@@ -263,7 +262,7 @@ if st.button("Run Strand Displacement Calculation"):
                 mm_pos_2 = mismatch_positions[1] - len(toehold) + 1
             else:
                 mm_pos_1 = disp_length - mismatch_positions[0]
-                mm_pos_2 = disp_length - mismatch_positions[0]
+                mm_pos_2 = disp_length - mismatch_positions[1]
         else:
             st.error("The model is currently not compatible with adjacent mismatches.")
             st.stop()
@@ -285,6 +284,8 @@ if st.button("Run Strand Displacement Calculation"):
             st.write(f"Mismatch positions: {mm_pos_1} and {mm_pos_2}")
 
     # Thermodynamics & Parameter Calculations
+
+    
     perfect_invader = list(invader)
     for pos, base in zip(mismatch_positions, correct_bases):
         perfect_invader[pos + alignment2["seq1_start"]] = base
@@ -309,25 +310,60 @@ if st.button("Run Strand Displacement Calculation"):
     ddH_toehold = (dHp - dH1) / len(toehold)
     ddS_toehold = (dSp - dS1) / len(toehold)
 
+    ddH_mm_1 = 0
+    ddS_mm_1 = 0
+    ddH_mm_2 = 0
+    ddS_mm_2 = 0
+
+    if n_mismatches == 1:
+        ddH_mm_1 = dH2 - dHp
+        ddS_mm_1 = dS2 - dSp
+
     if n_mismatches == 2:
-        ddH_mm = (dH2 - dHp) / 2
-        ddS_mm = (dS2 - dSp) / 2
-    else:
-        ddH_mm = dH2 - dHp
-        ddS_mm = dS2 - dSp
+        perfect_invader_M1 = list(invader)
+        perfect_invader_M2 = list(invader)
+
+        perfect_invader_M1[mismatch_positions[0] + alignment2["seq1_start"]] = correct_bases[0]
+        perfect_invader_M2[mismatch_positions[1] + alignment2["seq1_start"]] = correct_bases[1]
+
+        perfect_invader_M1 = "".join(perfect_invader_M1)
+        perfect_invader_M2 = "".join(perfect_invader_M2)
+
+        alignment_perfect_M1 = dnat.find_best_duplex_alignment(perfect_invader_M1, target)
+        alignment_perfect_M2 = dnat.find_best_duplex_alignment(perfect_invader_M2, target)
+
+        top_nn_p_M1, bottom_nn_p_M1 = dnat.crop_duplex_for_nn(alignment_perfect_M1)
+        top_nn_p_M2, bottom_nn_p_M2 = dnat.crop_duplex_for_nn(alignment_perfect_M2)
+
+        dHp_M1, dSp_M1, dGp_M1 = dnat.base_pairing_energies(
+            top_nn_p_M1, bottom_nn_p_M1, na_concentration, mg_concentration, temperature, dna_concentration_m
+        )
+        dHp_M2, dSp_M2, dGp_M2 = dnat.base_pairing_energies(
+            top_nn_p_M2, bottom_nn_p_M2, na_concentration, mg_concentration, temperature, dna_concentration_m
+        )
+
+
+
+
+        ddH_mm_1 = dH2 - dHp_M1
+        ddS_mm_1 = dS2 - dSp_M1
+        ddH_mm_2 = dH2 - dHp_M2
+        ddS_mm_2 = dS2 - dSp_M2
 
     # Rate Constant Computation
     rate_constant = dmm.Temp_dep_Markov_mismatch(
         temperature,
         len(toehold),
-        disp_length - 1,
+        disp_length,
         dna_concentration_m,
         ddH_toehold,
         ddS_toehold,
         mm_pos_1,
         mm_pos_2,
-        ddH_mm,
-        ddS_mm,
+        ddH_mm_1,
+        ddS_mm_1,
+        ddH_mm_2,
+        ddS_mm_2
     )
     st.write(f"Rate constant: {rate_constant:.1e} /s")
 
@@ -338,14 +374,16 @@ if st.button("Run Strand Displacement Calculation"):
             dmm.Temp_dep_Markov_mismatch(
                 t,
                 len(toehold),
-                disp_length - 1,
+                disp_length,
                 dna_concentration_m,
                 ddH_toehold,
                 ddS_toehold,
                 mm_pos_1,
                 mm_pos_2,
-                ddH_mm,
-                ddS_mm,
+                ddH_mm_1,
+                ddS_mm_1,
+                ddH_mm_2,
+                ddS_mm_2
             )
             for t in t_range
         ]
@@ -382,8 +420,17 @@ if st.button("Run Strand Displacement Calculation"):
         st.write(f"  ΔS: {dS2:.2f} cal/mol·K")
         st.write(f"  ΔG: {dG2:.2f} kcal/mol")
 
-        if n_mismatches > 0:
+        if n_mismatches == 1:
             st.divider()
             st.write("Mismatch penalty:")
-            st.write(f"  ΔΔH: {ddH_mm:.2f} kcal/mol")
-            st.write(f"  ΔΔS: {ddS_mm:.2f} cal/mol·K")
+            st.write(f"  ΔΔH: {ddH_mm_1:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {ddS_mm_1:.2f} cal/mol·K")
+
+        if n_mismatches == 2:
+            st.divider()
+            st.write("Mismatch penalty 1:")
+            st.write(f"  ΔΔH: {ddH_mm_1:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {ddS_mm_1:.2f} cal/mol·K")
+            st.write("Mismatch penalty 2:")
+            st.write(f"  ΔΔH: {ddH_mm_2:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {ddS_mm_2:.2f} cal/mol·K")

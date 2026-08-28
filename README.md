@@ -1,27 +1,20 @@
 # Strand-X
 
-Strand-X is an interactive Streamlit application designed for simulating and visualizing nucleic acid thermodynamics and Markov model dynamics.
+Strand-X is an interactive Streamlit application that computes temperature-dependent rate constants for toehold-mediated strand displacement (TMSD) reactions using a Markov chain model based on a one-dimensional free-energy landscape.
 
 Note: This repository accompanies an academic manuscript currently under peer review. Please do not distribute or cite without permission.
 
 ---
 
-## Features
+## Model Limitations
 
-- Rate Constant Computation: Calculates temperature-dependent kinetic rate constants for toehold-mediated strand displacement (TMSD) reactions.
-- Free-Energy Landscape Modeling: Uses a 1D free-energy landscape to construct and solve a 1D continuous-time Markov chain model.
-- Dynamic Parameter Input: Allows user customization of 5' -> 3' sequence inputs and experimental parameters (e.g., temperature and ionic conditions).
-- Output: Provides rate constants depent on temperature as well as alignment and thermodynamic output.
-
----
-
-## Model Capabilities & Limitations
-
-- Toehold Design: Supports single-toehold designs only.
-- Mismatch Tolerance: Compatible with up to 2 non-adjacent mismatches between the invader and target strands.
-- Incumbent Duplex: Assumes zero mismatches within the incumbent-target duplex.
-- Displacement Condition: Assumes the invader strand is capable of fully displacing the incumbent strand.
-- Transition State Barriers: Does not currently incorporate sequence-dependent or salt-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
+- Supports only single-toehold designs.
+- Compatible with up to 2 non-adjacent mismatches betweeen the invader and target strand.
+- Assumes no mismatches in the incumbent-target duplex.
+- Assumes no mismatches in the toehold region.
+- Invader needs to be able to fully displace the incumbent.
+- The model currently does not employ sequence-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
+- The model currently does not employ salt-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
 ---
 
 ## Quickstart (Running Locally)
@@ -37,6 +30,12 @@ To run Strand-X locally on your computer:
 The application will automatically open in your default browser at http://localhost:8501.
 
 ---
+
+## How to Use
+1. Enter sequences in 5' -> 3' direction
+2. Define experimental conditions
+3. Click Run Strand Displacement Calculation
+
 
 ## Repository Structure
 
