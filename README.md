@@ -6,17 +6,6 @@ Note: This repository accompanies an academic manuscript currently under peer re
 
 ---
 
-## Model Limitations
-
-- Supports only single-toehold designs.
-- Compatible with up to 2 non-adjacent mismatches betweeen the invader and target strand.
-- Assumes no mismatches in the incumbent-target duplex.
-- Assumes no mismatches in the toehold region.
-- Invader needs to be able to fully displace the incumbent.
-- The model currently does not employ sequence-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
-- The model currently does not employ salt-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
----
-
 ## Quickstart (Running Locally)
 
 To run Strand-X locally on your computer:
@@ -47,6 +36,18 @@ The application will automatically open in your default browser at http://localh
 - StrandX_v_1_0.py: Main Streamlit user interface
 
 ---
+
+---
+
+## Model Limitations
+
+- Supports only single-toehold designs.
+- Compatible with up to 2 non-adjacent mismatches betweeen the invader and target strand.
+- Assumes no mismatches in the incumbent-target duplex.
+- Assumes no mismatches in the toehold region.
+- Invader needs to be able to fully displace the incumbent.
+- The model currently does not employ sequence-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
+- The model currently does not employ salt-dependent transition state barriers for toehold-hybridization nucleation and branch migration.
 
 ## Contact & Feedback
 
