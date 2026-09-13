@@ -116,20 +116,20 @@ with st.expander("about Strand-X & Usage Guidelines", expanded=False):
 
 
 # --- Section 1: Sequence Inputs ---
-target = st.text_input(
+target = "".join(st.text_input(
     "Sequence for target (5' -> 3'):",
     "CTATCTCTGTCTGTCTCTTCTATCTCTTGTGTCTCTG",
-).upper().strip()
+).upper().split())
 
-incumbent = st.text_input(
+incumbent = "".join(st.text_input(
     "Sequence for incumbent (5' -> 3'):",
     "AGAGATAGAAGAGACAGACAGAGATAG",
-).upper().strip()
+).upper().split())
 
-invader = st.text_input(
+invader = "".join(st.text_input(
     "Sequence for invader (5' -> 3'):",
     "CAGAGACACAAGACATAGAAGAGACAGACAGAGATAG",
-).upper().strip()
+).upper().split())
 
 # --- Section 2: Experimental Conditions ---
 col1, col2, col3, col4 = st.columns(4)

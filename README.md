@@ -2,7 +2,7 @@
 
 Strand-X is an interactive Streamlit application that computes temperature-dependent rate constants for toehold-mediated strand displacement (TMSD) reactions using a Markov chain model based on a one-dimensional free-energy landscape.
 
-Note: This repository accompanies an academic manuscript currently under peer review. Please do not distribute or cite without permission.
+Note: This repository accompanies an academic manuscript currently under peer review. Please do not distribute permission.
 
 ---
 
