@@ -6,7 +6,7 @@ Code written by: Patrick Irmisch
 Markov model solver for predicting temperature-dependent DNA 
 strand displacement kinetics with single and double mismatches.
 """
-
+import DNA_thermodynamics as dnat
 import numpy as np
 from matplotlib import pyplot as plt
 
@@ -149,6 +149,130 @@ def Temp_dep_Markov_mismatch(
 
     return 1.0 / first_passage_time
 
+
+def strand_displacement_details(
+    target, incumbent, invader, temperature, na_conc, mg_conc, c_oligo
+):
+    """
+    Full pipeline: sequences + conditions -> rate constant (1/s).
+    Raises ValueError for unsupported designs.
+    """
+    target = "".join(str(target).split()).upper()
+    incumbent = "".join(str(incumbent).split()).upper()
+    invader = "".join(str(invader).split()).upper()
+
+    alignment1 = dnat.find_best_duplex_alignment(incumbent, target)
+    alignment2 = dnat.find_best_duplex_alignment(invader, target)
+
+    n_mismatches = alignment2["mismatches"]
+    mismatch_positions = alignment2["mismatch_positions"]
+    correct_bases = alignment2["correct_base_at_mismatches"]
+
+    # Domain identification
+    domains = dnat.identify_domains(alignment1, alignment2, target)
+    left_toehold = domains["toehold_left"]
+    right_toehold = domains["toehold_right"]
+
+    # Structural validations
+    if left_toehold and right_toehold:
+        raise ValueError("Two toeholds detected. Please provide a single-toehold design.")
+    if (
+        alignment1["seq2_start"] != alignment2["seq2_start"]
+        and alignment1["seq2_end"] != alignment2["seq2_end"]
+    ):
+        raise ValueError("The invader needs to reach the incumbent's end!")
+    if alignment1["mismatches"] > 0:
+        raise ValueError("The model is currently not compatible with incumbent-target mismatches!")
+    elif left_toehold:
+        toehold, toehold_position = left_toehold, "5'"
+    elif right_toehold:
+        toehold, toehold_position = right_toehold, "3'"
+    else:
+        raise ValueError("No toehold detected.")
+
+    disp_length = len(domains["displacement_sequence"])
+
+    # Mismatch mapping
+    mm_pos_1 = 0
+    mm_pos_2 = 0
+    if n_mismatches == 1:
+        if toehold_position == "3'":
+            mm_pos_1 = mismatch_positions[0] - len(toehold) + 1
+        else:
+            mm_pos_1 = disp_length - mismatch_positions[0]
+    elif n_mismatches == 2:
+        if abs(mismatch_positions[0] - mismatch_positions[1]) > 1:
+            if toehold_position == "3'":
+                mm_pos_1 = mismatch_positions[0] - len(toehold) + 1
+                mm_pos_2 = mismatch_positions[1] - len(toehold) + 1
+            else:
+                mm_pos_1 = disp_length - mismatch_positions[0]
+                mm_pos_2 = disp_length - mismatch_positions[1]
+        else:
+            raise ValueError("The model is currently not compatible with adjacent mismatches.")
+    elif n_mismatches > 2:
+        raise ValueError("The model is currently not compatible with more than 2 mismatches.")
+
+    if mm_pos_1 < 0 or mm_pos_2 < 0:
+        raise ValueError("The model is currently not compatible with mismatches in the toehold region.")
+
+    # Thermodynamics
+    def energies(aln):
+        top, bottom = dnat.crop_duplex_for_nn(aln)
+        return dnat.base_pairing_energies(
+            top, bottom, na_conc, mg_conc, temperature, c_oligo
+        )
+
+    def energies_corrected(indices):
+        seq = list(invader)
+        for i in indices:
+            seq[mismatch_positions[i] + alignment2["seq1_start"]] = correct_bases[i]
+        return energies(dnat.find_best_duplex_alignment("".join(seq), target))
+
+    dH1, dS1, dG1 = energies(alignment1)
+    dH2, dS2, dG2 = energies(alignment2)
+    dHp, dSp, _ = energies_corrected(range(n_mismatches))
+
+    ddH_toehold = (dHp - dH1) / len(toehold)
+    ddS_toehold = (dSp - dS1) / len(toehold)
+
+    ddH_mm_1 = ddS_mm_1 = ddH_mm_2 = ddS_mm_2 = 0
+    if n_mismatches == 1:
+        ddH_mm_1 = dH2 - dHp
+        ddS_mm_1 = dS2 - dSp
+    elif n_mismatches == 2:
+        dHp_M1, dSp_M1, _ = energies_corrected([0])
+        dHp_M2, dSp_M2, _ = energies_corrected([1])
+        ddH_mm_1 = dH2 - dHp_M1
+        ddS_mm_1 = dS2 - dSp_M1
+        ddH_mm_2 = dH2 - dHp_M2
+        ddS_mm_2 = dS2 - dSp_M2
+
+    model_args = dict(
+        L=len(toehold), N=disp_length, c_oligo=c_oligo,
+        Hbp=ddH_toehold, Sbp=ddS_toehold,
+        MMpos1=mm_pos_1, MMpos2=mm_pos_2,
+        Hmm1=ddH_mm_1, Smm1=ddS_mm_1, Hmm2=ddH_mm_2, Smm2=ddS_mm_2,
+    )
+
+    return {
+        "rate_constant": Temp_dep_Markov_mismatch(temperature, **model_args),
+        "model_args": model_args,
+        "toehold": toehold,
+        "disp_length": disp_length,
+        "n_mismatches": n_mismatches,
+        "mm_pos_1": mm_pos_1,
+        "mm_pos_2": mm_pos_2,
+        "dH1": dH1, "dS1": dS1, "dG1": dG1,
+        "dH2": dH2, "dS2": dS2, "dG2": dG2,
+        "ddH_toehold": ddH_toehold, "ddS_toehold": ddS_toehold,
+        "ddH_mm_1": ddH_mm_1, "ddS_mm_1": ddS_mm_1,
+        "ddH_mm_2": ddH_mm_2, "ddS_mm_2": ddS_mm_2,
+    }
+
+def strand_displacement_rate(target, incumbent, invader, temperature, na_conc, mg_conc, c_oligo):
+    """Plain rate constant (1/s); run strand_displacement_details for more details."""
+    return strand_displacement_details(target, incumbent, invader, temperature, na_conc, mg_conc, c_oligo)["rate_constant"]
 
 def init_plotting():
     """

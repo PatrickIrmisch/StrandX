@@ -194,203 +194,43 @@ with col3:
 
 # --- Section 4: Main Execution Block ---
 if st.button("Run Strand Displacement Calculation"):
-    # Duplex alignments
-    alignment1 = dnat.find_best_duplex_alignment(incumbent, target)
-    alignment2 = dnat.find_best_duplex_alignment(invader, target)
-
-    n_mismatches = alignment2["mismatches"]
-    mismatch_positions = alignment2["mismatch_positions"]
-    correct_bases = alignment2["correct_base_at_mismatches"]
-
     if show_alignment:
         st.write("Incumbent-target alignment:")
-        st.code(dnat.print_duplex_alignment(alignment1))
-
+        st.code(dnat.print_duplex_alignment(dnat.find_best_duplex_alignment(incumbent, target)))
         st.write("Invader-target alignment:")
-        st.code(dnat.print_duplex_alignment(alignment2))
+        st.code(dnat.print_duplex_alignment(dnat.find_best_duplex_alignment(invader, target)))
 
-    # Domain identification
-    domains = dnat.identify_domains(alignment1, alignment2, target)
-    left_toehold = domains["toehold_left"]
-    right_toehold = domains["toehold_right"]
-
-    # Structural validations
-    if left_toehold and right_toehold:
-        st.error("Two toeholds detected. Please provide a single-toehold design.")
+    try:
+        res = dmm.strand_displacement_details(
+            target, incumbent, invader,
+            temperature, na_concentration, mg_concentration, dna_concentration_m,
+        )
+    except ValueError as e:
+        st.error(str(e))
         st.stop()
 
-    if (
-        alignment1["seq2_start"] != alignment2["seq2_start"]
-        and alignment1["seq2_end"] != alignment2["seq2_end"]
-    ):
-        st.error("The invader needs to reach the incumbent's end!")
-        st.stop()
-
-    if alignment1["mismatches"] > 0:
-        st.error("The model is currently not compatible with incumbent-target mismatches!")
-        st.stop()
-    elif left_toehold:
-        toehold = left_toehold
-        toehold_position = "5'"
-    elif right_toehold:
-        toehold = right_toehold
-        toehold_position = "3'"
-    else:
-        st.error("No toehold detected.")
-        st.stop()
-
-    disp_length = len(domains["displacement_sequence"])
+    rate_constant = res["rate_constant"]
+    n_mismatches = res["n_mismatches"]
 
     if show_alignment:
-        st.write(f"Toehold length: {len(toehold)} nt")
-        st.write(f"Displacement length: {disp_length} nt")
-
-    # Mismatch mapping
-    mm_pos_1 = 0
-    mm_pos_2 = 0
-
-    if n_mismatches == 1:
-        if toehold_position == "3'":
-            mm_pos_1 = mismatch_positions[0] - len(toehold) + 1
-        else:
-            mm_pos_1 = disp_length - mismatch_positions[0]
-
-    elif n_mismatches == 2:
-        if abs(mismatch_positions[0] - mismatch_positions[1]) > 1:
-            if toehold_position == "3'":
-                mm_pos_1 = mismatch_positions[0] - len(toehold) + 1
-                mm_pos_2 = mismatch_positions[1] - len(toehold) + 1
-            else:
-                mm_pos_1 = disp_length - mismatch_positions[0]
-                mm_pos_2 = disp_length - mismatch_positions[1]
-        else:
-            st.error("The model is currently not compatible with adjacent mismatches.")
-            st.stop()
-
-    elif n_mismatches > 2:
-        st.error("The model is currently not compatible with more than 2 mismatches.")
-        st.stop()
-
-    if mm_pos_1<0 or mm_pos_2<0:
-        st.error("The model is currently not compatible with mismatches in the toehold region.")
-        st.stop()
-    
-
-    if show_alignment:
+        st.write(f"Toehold length: {len(res['toehold'])} nt")
+        st.write(f"Displacement length: {res['disp_length']} nt")
         st.write(f"Number of mismatches: {n_mismatches}")
         if n_mismatches == 1:
-            st.write(f"Mismatch position: {mm_pos_1}")
+            st.write(f"Mismatch position: {res['mm_pos_1']}")
         elif n_mismatches == 2:
-            st.write(f"Mismatch positions: {mm_pos_1} and {mm_pos_2}")
+            st.write(f"Mismatch positions: {res['mm_pos_1']} and {res['mm_pos_2']}")
 
-    # Thermodynamics & Parameter Calculations
-
-    
-    perfect_invader = list(invader)
-    for pos, base in zip(mismatch_positions, correct_bases):
-        perfect_invader[pos + alignment2["seq1_start"]] = base
-    perfect_invader = "".join(perfect_invader)
-
-    alignment_perfect = dnat.find_best_duplex_alignment(perfect_invader, target)
-    top_nn_p, bottom_nn_p = dnat.crop_duplex_for_nn(alignment_perfect)
-    dHp, dSp, dGp = dnat.base_pairing_energies(
-        top_nn_p, bottom_nn_p, na_concentration, mg_concentration, temperature, dna_concentration_m
-    )
-
-    top_nn1, bottom_nn1 = dnat.crop_duplex_for_nn(alignment1)
-    dH1, dS1, dG1 = dnat.base_pairing_energies(
-        top_nn1, bottom_nn1, na_concentration, mg_concentration, temperature, dna_concentration_m
-    )
-
-    top_nn2, bottom_nn2 = dnat.crop_duplex_for_nn(alignment2)
-    dH2, dS2, dG2 = dnat.base_pairing_energies(
-        top_nn2, bottom_nn2, na_concentration, mg_concentration, temperature, dna_concentration_m
-    )
-
-    ddH_toehold = (dHp - dH1) / len(toehold)
-    ddS_toehold = (dSp - dS1) / len(toehold)
-
-    ddH_mm_1 = 0
-    ddS_mm_1 = 0
-    ddH_mm_2 = 0
-    ddS_mm_2 = 0
-
-    if n_mismatches == 1:
-        ddH_mm_1 = dH2 - dHp
-        ddS_mm_1 = dS2 - dSp
-
-    if n_mismatches == 2:
-        perfect_invader_M1 = list(invader)
-        perfect_invader_M2 = list(invader)
-
-        perfect_invader_M1[mismatch_positions[0] + alignment2["seq1_start"]] = correct_bases[0]
-        perfect_invader_M2[mismatch_positions[1] + alignment2["seq1_start"]] = correct_bases[1]
-
-        perfect_invader_M1 = "".join(perfect_invader_M1)
-        perfect_invader_M2 = "".join(perfect_invader_M2)
-
-        alignment_perfect_M1 = dnat.find_best_duplex_alignment(perfect_invader_M1, target)
-        alignment_perfect_M2 = dnat.find_best_duplex_alignment(perfect_invader_M2, target)
-
-        top_nn_p_M1, bottom_nn_p_M1 = dnat.crop_duplex_for_nn(alignment_perfect_M1)
-        top_nn_p_M2, bottom_nn_p_M2 = dnat.crop_duplex_for_nn(alignment_perfect_M2)
-
-        dHp_M1, dSp_M1, dGp_M1 = dnat.base_pairing_energies(
-            top_nn_p_M1, bottom_nn_p_M1, na_concentration, mg_concentration, temperature, dna_concentration_m
-        )
-        dHp_M2, dSp_M2, dGp_M2 = dnat.base_pairing_energies(
-            top_nn_p_M2, bottom_nn_p_M2, na_concentration, mg_concentration, temperature, dna_concentration_m
-        )
-
-
-
-
-        ddH_mm_1 = dH2 - dHp_M1
-        ddS_mm_1 = dS2 - dSp_M1
-        ddH_mm_2 = dH2 - dHp_M2
-        ddS_mm_2 = dS2 - dSp_M2
-
-    # Rate Constant Computation
-    rate_constant = dmm.Temp_dep_Markov_mismatch(
-        temperature,
-        len(toehold),
-        disp_length,
-        dna_concentration_m,
-        ddH_toehold,
-        ddS_toehold,
-        mm_pos_1,
-        mm_pos_2,
-        ddH_mm_1,
-        ddS_mm_1,
-        ddH_mm_2,
-        ddS_mm_2
-    )
     st.write(f"Rate constant: {rate_constant:.1e} /s")
 
     # Optional Rate vs. Temperature Plot
     if show_plot:
         t_range = np.linspace(0, 70, 71)
-        rates = [
-            dmm.Temp_dep_Markov_mismatch(
-                t,
-                len(toehold),
-                disp_length,
-                dna_concentration_m,
-                ddH_toehold,
-                ddS_toehold,
-                mm_pos_1,
-                mm_pos_2,
-                ddH_mm_1,
-                ddS_mm_1,
-                ddH_mm_2,
-                ddS_mm_2
-            )
-            for t in t_range
-        ]
+        rates = [dmm.Temp_dep_Markov_mismatch(t, **res["model_args"]) for t in t_range]
 
         dmm.init_plotting()
         fig, ax = plt.subplots(figsize=(5.3, 3))
-        
+
         ax.set_xlabel("Temperature (°C)")
         ax.set_ylabel("Rate constant (1/s)")
         ax.set_xlim(0, 70)
@@ -405,32 +245,32 @@ if st.button("Run Strand Displacement Calculation"):
     if show_details:
         st.divider()
         st.write("Mean enthalpy and entropy changes per base-pair stack of the toehold:")
-        st.write(f"  ΔΔH: {ddH_toehold:.2f} kcal/mol")
-        st.write(f"  ΔΔS: {ddS_toehold:.2f} cal/mol·K")
+        st.write(f"  ΔΔH: {res['ddH_toehold']:.2f} kcal/mol")
+        st.write(f"  ΔΔS: {res['ddS_toehold']:.2f} cal/mol·K")
 
         st.divider()
         st.write("Target-incumbent thermodynamics:")
-        st.write(f"  ΔH: {dH1:.2f} kcal/mol")
-        st.write(f"  ΔS: {dS1:.2f} cal/mol·K")
-        st.write(f"  ΔG: {dG1:.2f} kcal/mol")
+        st.write(f"  ΔH: {res['dH1']:.2f} kcal/mol")
+        st.write(f"  ΔS: {res['dS1']:.2f} cal/mol·K")
+        st.write(f"  ΔG: {res['dG1']:.2f} kcal/mol")
 
         st.divider()
         st.write("Target-invader thermodynamics:")
-        st.write(f"  ΔH: {dH2:.2f} kcal/mol")
-        st.write(f"  ΔS: {dS2:.2f} cal/mol·K")
-        st.write(f"  ΔG: {dG2:.2f} kcal/mol")
+        st.write(f"  ΔH: {res['dH2']:.2f} kcal/mol")
+        st.write(f"  ΔS: {res['dS2']:.2f} cal/mol·K")
+        st.write(f"  ΔG: {res['dG2']:.2f} kcal/mol")
 
         if n_mismatches == 1:
             st.divider()
             st.write("Mismatch penalty:")
-            st.write(f"  ΔΔH: {ddH_mm_1:.2f} kcal/mol")
-            st.write(f"  ΔΔS: {ddS_mm_1:.2f} cal/mol·K")
+            st.write(f"  ΔΔH: {res['ddH_mm_1']:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {res['ddS_mm_1']:.2f} cal/mol·K")
 
         if n_mismatches == 2:
             st.divider()
             st.write("Mismatch penalty 1:")
-            st.write(f"  ΔΔH: {ddH_mm_1:.2f} kcal/mol")
-            st.write(f"  ΔΔS: {ddS_mm_1:.2f} cal/mol·K")
+            st.write(f"  ΔΔH: {res['ddH_mm_1']:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {res['ddS_mm_1']:.2f} cal/mol·K")
             st.write("Mismatch penalty 2:")
-            st.write(f"  ΔΔH: {ddH_mm_2:.2f} kcal/mol")
-            st.write(f"  ΔΔS: {ddS_mm_2:.2f} cal/mol·K")
+            st.write(f"  ΔΔH: {res['ddH_mm_2']:.2f} kcal/mol")
+            st.write(f"  ΔΔS: {res['ddS_mm_2']:.2f} cal/mol·K")

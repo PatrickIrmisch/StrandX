@@ -34,7 +34,9 @@ The application will automatically open in your default browser at http://localh
 - requirements.txt: Required Python library dependencies
 - README.md: Project documentation
 - SantaLucia_DNA_parameters.py: contains NN DNA parameters
+- StrandX_demo.py: Minimal example calling the model without the app
 - StrandX_v_1_0.py: Main Streamlit user interface
+
 
 ---
 
