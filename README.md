@@ -52,4 +52,4 @@ The application will automatically open in your default browser at http://localh
 
 ## Contact & Feedback
 
-For questions, bug reports, or reviewer inquiries regarding Strand-X, please reach out via email: patrick.irmisch [at] uni-leipzig.de
+For questions or bug reports please reach out via email: patrick.irmisch [at] uni-leipzig.de
